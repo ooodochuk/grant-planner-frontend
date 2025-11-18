@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation"; // 🟢 додали useRouter
 import {
     Loader2,
     UploadCloud,
@@ -16,7 +16,7 @@ const API_BASE =
 
 // ===== types =====
 type VersionRow = {
-    id: number; // може й далі приходити, але не використовуємо в ендпоінтах
+    id: number;
     version: number;
     status: "DRAFT" | "PUBLISHED" | "ARCHIVED" | string;
     publishedAt?: string | null;
@@ -65,7 +65,9 @@ function validateField(f: FieldDef): Record<string, string> {
 
 // ===== small UI atoms =====
 const Btn: React.FC<
-    React.ButtonHTMLAttributes<HTMLButtonElement> & { tone?: "default" | "danger" | "subtle" }
+    React.ButtonHTMLAttributes<HTMLButtonElement> & {
+    tone?: "default" | "danger" | "subtle";
+}
 > = ({ className = "", tone = "default", ...props }) => {
     const toneCls =
         tone === "danger"
@@ -81,10 +83,10 @@ const Btn: React.FC<
     );
 };
 
-const Badge: React.FC<{ color: "gray" | "green" | "yellow" | "red"; children: React.ReactNode }> = ({
-                                                                                                        color,
-                                                                                                        children,
-                                                                                                    }) => {
+const Badge: React.FC<{
+    color: "gray" | "green" | "yellow" | "red";
+    children: React.ReactNode;
+}> = ({ color, children }) => {
     const map: Record<string, string> = {
         gray: "bg-slate-100 text-slate-700 border-slate-200",
         green: "bg-green-50 text-green-700 border-green-200",
@@ -92,7 +94,9 @@ const Badge: React.FC<{ color: "gray" | "green" | "yellow" | "red"; children: Re
         red: "bg-rose-50 text-rose-700 border-rose-200",
     };
     return (
-        <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs ${map[color]}`}>
+        <span
+            className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs ${map[color]}`}
+        >
       {children}
     </span>
     );
@@ -105,7 +109,13 @@ const Toggle: React.FC<{
     onChange: (v: boolean) => void;
 }> = ({ id, label, checked, onChange }) => (
     <label htmlFor={id} className="inline-flex items-center gap-2 cursor-pointer">
-        <input id={id} type="checkbox" className="sr-only peer" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+        <input
+            id={id}
+            type="checkbox"
+            className="sr-only peer"
+            checked={checked}
+            onChange={(e) => onChange(e.target.checked)}
+        />
         <span className="h-5 w-9 rounded-full bg-slate-200 peer-checked:bg-slate-900 relative transition">
       <span className="absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition peer-checked:translate-x-4" />
     </span>
@@ -116,6 +126,67 @@ const Toggle: React.FC<{
 const Hint: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <div className="mt-1 text-xs text-slate-400">{children}</div>
 );
+
+// ... EnumChips і FieldRow залишаю без змін ...
+
+// ===== Main Page =====
+export default function TemplateVersionsPage() {
+    const params = useParams<{ templateId: string }>();
+    const router = useRouter();
+
+    // безпечне читання параметра
+    const rawTemplateId =
+        (params && (params.templateId as string)) ?? undefined;
+    const templateId = Number(rawTemplateId);
+
+    const [versions, setVersions] = useState<VersionRow[]>([]);
+    const [selected, setSelected] = useState<VersionRow | null>(null);
+
+    const [fields, setFields] = useState<FieldDef[]>([]);
+    const [note, setNote] = useState("");
+    const [loading, setLoading] = useState(false);
+
+    const hasErrors = useMemo(
+        () => fields.some((f) => Object.keys(validateField(f)).length > 0),
+        [fields]
+    );
+
+    // 🟢 guard: якщо templateId некоректний (NaN) — показуємо сторінку-заглушку
+    if (!rawTemplateId || Number.isNaN(templateId)) {
+        return (
+            <div className="p-6 space-y-4">
+                <h1 className="text-2xl font-semibold">Шаблони документів</h1>
+                <p className="text-sm text-slate-600">
+                    Схоже, сторінка версій відкрита без коректного <code>templateId</code>.
+                    Спочатку обери або створи шаблон.
+                </p>
+                <Btn onClick={() => router.push("/admin/templates")}>
+                    Перейти до списку шаблонів
+                </Btn>
+            </div>
+        );
+    }
+
+    // load versions list
+    useEffect(() => {
+        (async () => {
+            setLoading(true);
+            setNote("");
+            try {
+                const res = await fetch(
+                    `${API_BASE}/api/admin/templates/${templateId}/versions`
+                );
+                if (!res.ok) throw new Error(await res.text());
+                const data = await res.json();
+                setVersions(Array.isArray(data) ? data : []);
+            } catch (e: any) {
+                setNote(`Помилка завантаження версій: ${e.message}`);
+            } finally {
+                setLoading(false);
+            }
+        })();
+    }, [templateId]);
+}
 
 // chips editor for enum
 const EnumChips: React.FC<{
@@ -338,358 +409,3 @@ const FieldRow: React.FC<{
         </div>
     );
 };
-
-// ===== Main Page =====
-export default function TemplateVersionsPage() {
-    const params = useParams<{ templateId: string }>();
-    const templateId = Number(params.templateId);
-
-    const [versions, setVersions] = useState<VersionRow[]>([]);
-    const [selected, setSelected] = useState<VersionRow | null>(null);
-
-    const [fields, setFields] = useState<FieldDef[]>([]);
-    const [note, setNote] = useState("");
-    const [loading, setLoading] = useState(false);
-
-    const hasErrors = useMemo(
-        () => fields.some((f) => Object.keys(validateField(f)).length > 0),
-        [fields]
-    );
-
-    // load versions list
-    useEffect(() => {
-        (async () => {
-            setLoading(true);
-            setNote("");
-            try {
-                const res = await fetch(
-                    `${API_BASE}/api/admin/templates/${templateId}/versions`
-                );
-                if (!res.ok) throw new Error(await res.text());
-                const data = await res.json();
-                setVersions(Array.isArray(data) ? data : []);
-            } catch (e: any) {
-                setNote(`Помилка завантаження версій: ${e.message}`);
-            } finally {
-                setLoading(false);
-            }
-        })();
-    }, [templateId]);
-
-    async function openVersion(v: VersionRow) {
-        setSelected(v);
-        setNote("");
-        setLoading(true);
-        try {
-            const res = await fetch(
-                `${API_BASE}/api/admin/templates/${templateId}/versions/${v.version}`
-            );
-            if (!res.ok) throw new Error(await res.text());
-            const data = await res.json();
-            setFields(clone(data.fieldDefs?.fields || []));
-        } catch (e: any) {
-            setNote(`Помилка завантаження полів: ${e.message}`);
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    // reorder
-    const moveUp = (i: number) =>
-        setFields((prev) => {
-            if (i <= 0) return prev;
-            const next = clone(prev);
-            [next[i - 1], next[i]] = [next[i], next[i - 1]];
-            return next;
-        });
-    const moveDown = (i: number) =>
-        setFields((prev) => {
-            if (i >= prev.length - 1) return prev;
-            const next = clone(prev);
-            [next[i + 1], next[i]] = [next[i], next[i + 1]];
-            return next;
-        });
-
-    const addField = () => setFields((p) => [...p, EMPTY_FIELD()]);
-    const removeField = (i: number) =>
-        setFields((p) => p.filter((_, idx) => idx !== i));
-
-    async function saveFields() {
-        if (!selected) return;
-        setLoading(true);
-        setNote("");
-        try {
-            const res = await fetch(
-                `${API_BASE}/api/admin/templates/${templateId}/versions/${selected.version}/fields`,
-                {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ fields }),
-                }
-            );
-            if (!res.ok) throw new Error(await res.text());
-            setNote("✅ Поля збережено");
-        } catch (e: any) {
-            setNote(`Помилка збереження: ${e.message}`);
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    async function publish() {
-        if (!selected) return;
-        setLoading(true);
-        setNote("");
-        try {
-            const res = await fetch(
-                `${API_BASE}/api/admin/templates/${templateId}/versions/${selected.version}/publish`,
-                { method: "POST" }
-            );
-            if (!res.ok) throw new Error(await res.text());
-            setNote("🚀 Опубліковано");
-
-            // refresh versions list
-            const r = await fetch(
-                `${API_BASE}/api/admin/templates/${templateId}/versions`
-            );
-            if (r.ok) {
-                const data: VersionRow[] = await r.json();
-                setVersions(data);
-                const updated = data.find((v) => v.version === selected.version);
-                if (updated) setSelected(updated);
-            }
-        } catch (e: any) {
-            setNote(`Помилка публікації: ${e.message}`);
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    async function archiveVersion(version: number) {
-        if (!confirm("Архівувати цю версію?")) return;
-        setLoading(true);
-        setNote("");
-        try {
-            const res = await fetch(
-                `${API_BASE}/api/admin/templates/${templateId}/versions/${version}/archive`,
-                { method: "POST" }
-            );
-            if (!res.ok) throw new Error(await res.text());
-            setNote("✅ Версію заархівовано");
-            const r = await fetch(
-                `${API_BASE}/api/admin/templates/${templateId}/versions`
-            );
-            if (r.ok) {
-                const data: VersionRow[] = await r.json();
-                setVersions(data);
-                if (selected?.version === version) {
-                    const upd = data.find((v) => v.version === version);
-                    if (upd) setSelected(upd);
-                }
-            }
-            // eslint-disable-next-line no-empty
-        } catch (e: any) {
-            setNote(`Помилка архівації версії: ${e.message}`);
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    async function unarchiveVersion(version: number) {
-        if (!confirm("Повернути версію з архіву?")) return;
-        setLoading(true);
-        setNote("");
-        try {
-            const res = await fetch(
-                `${API_BASE}/api/admin/templates/${templateId}/versions/${version}/unarchive`,
-                { method: "POST" }
-            );
-            if (!res.ok) throw new Error(await res.text());
-            setNote("✅ Версію повернено з архіву");
-            const r = await fetch(
-                `${API_BASE}/api/admin/templates/${templateId}/versions`
-            );
-            if (r.ok) {
-                const data: VersionRow[] = await r.json();
-                setVersions(data);
-                if (selected?.version === version) {
-                    const upd = data.find((v) => v.version === version);
-                    if (upd) setSelected(upd);
-                }
-            }
-        } catch (e: any) {
-            setNote(`Помилка розархівації версії: ${e.message}`);
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    const selectedIsArchived = selected?.status === "ARCHIVED";
-
-    // ===== render =====
-    return (
-        <div className="p-6 space-y-6">
-            <header className="flex items-end justify-between flex-wrap gap-3">
-                <div>
-                    <h1 className="text-2xl font-semibold">Шаблон #{templateId}</h1>
-                    <p className="text-sm text-slate-500">Керування версіями та полями</p>
-                </div>
-                {loading && (
-                    <span className="inline-flex items-center gap-2 text-sm text-slate-500">
-            <Loader2 className="h-4 w-4 animate-spin" /> Обробка…
-          </span>
-                )}
-            </header>
-
-            {note && (
-                <div className="rounded-xl border bg-white p-3 text-sm">{note}</div>
-            )}
-
-            {/* Секція 1: Версії */}
-            <section className="rounded-2xl border bg-white overflow-hidden">
-                <div className="px-4 py-3 border-b flex items-center justify-between">
-                    <h2 className="text-lg font-medium">Версії</h2>
-                    <span className="text-sm text-slate-500">всього: {versions.length}</span>
-                </div>
-
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead className="bg-slate-50">
-                        <tr className="text-left">
-                            <th className="p-3 w-24">Version</th>
-                            <th className="p-3 w-36">Status</th>
-                            <th className="p-3 w-56">Published</th>
-                            <th className="p-3">Дія</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        {versions.map((v) => {
-                            const st =
-                                v.status === "PUBLISHED"
-                                    ? "green"
-                                    : v.status === "ARCHIVED"
-                                        ? "red"
-                                        : "yellow";
-                            return (
-                                <tr key={v.version} className="border-t">
-                                    <td className="p-3">#{v.version}</td>
-                                    <td className="p-3">
-                                        <Badge color={st as any}>{v.status}</Badge>
-                                    </td>
-                                    <td className="p-3">{v.publishedAt ?? "—"}</td>
-                                    <td className="p-3">
-                                        <div className="flex flex-wrap gap-2">
-                                            <Btn onClick={() => openVersion(v)}>Редагувати →</Btn>
-                                            {v.status === "ARCHIVED" ? (
-                                                <Btn onClick={() => unarchiveVersion(v.version)}>
-                                                    Повернути
-                                                </Btn>
-                                            ) : (
-                                                <Btn onClick={() => archiveVersion(v.version)} tone="danger">
-                                                    Архівувати
-                                                </Btn>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                        {versions.length === 0 && (
-                            <tr>
-                                <td className="p-6 text-center text-slate-500" colSpan={4}>
-                                    Версій немає
-                                </td>
-                            </tr>
-                        )}
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-
-            {/* Секція 2: Деталі вибраної версії */}
-            {selected && (
-                <section className="rounded-2xl border bg-white">
-                    <div className="px-4 py-3 border-b flex items-center justify-between flex-wrap gap-2">
-                        <div className="flex items-center gap-3">
-                            <h2 className="text-lg font-medium">
-                                Версія #{selected.version}
-                            </h2>
-                            <Badge
-                                color={
-                                    selected.status === "PUBLISHED"
-                                        ? "green"
-                                        : selected.status === "ARCHIVED"
-                                            ? "red"
-                                            : "yellow"
-                                }
-                            >
-                                {selected.status}
-                            </Badge>
-                        </div>
-                        <div className="flex gap-2">
-                            {selectedIsArchived ? (
-                                <Btn onClick={() => unarchiveVersion(selected.version)}>
-                                    Повернути з архіву
-                                </Btn>
-                            ) : (
-                                <Btn onClick={() => archiveVersion(selected.version)} tone="danger">
-                                    Архівувати версію
-                                </Btn>
-                            )}
-                            <Btn onClick={saveFields} disabled={loading || hasErrors}>
-                                {loading ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                    <Save className="h-4 w-4" />
-                                )}
-                                Зберегти
-                            </Btn>
-                            <Btn
-                                onClick={publish}
-                                disabled={loading || hasErrors || selectedIsArchived}
-                                title={selectedIsArchived ? "Спершу розархівуй цю версію" : "Опублікувати"}
-                            >
-                                {loading ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                    <UploadCloud className="h-4 w-4" />
-                                )}
-                                Опублікувати
-                            </Btn>
-                        </div>
-                    </div>
-
-                    {/* Секція 3: Поля */}
-                    <div className="p-4 space-y-4">
-                        <div className="flex items-center justify-between">
-                            <div className="text-sm text-slate-600">Полів: {fields.length}</div>
-                            <Btn onClick={addField}>Додати поле +</Btn>
-                        </div>
-
-                        <div className="space-y-3">
-                            {fields.map((f, i) => (
-                                <FieldRow
-                                    key={`row-${i}-${f.name || "new"}`}
-                                    value={f}
-                                    index={i}
-                                    onChange={(next) =>
-                                        setFields((prev) => prev.map((p, idx) => (idx === i ? next : p)))
-                                    }
-                                    onRemove={() => removeField(i)}
-                                    onMoveUp={() => moveUp(i)}
-                                    onMoveDown={() => moveDown(i)}
-                                />
-                            ))}
-                        </div>
-
-                        {hasErrors && (
-                            <div className="rounded-lg border bg-amber-50 text-amber-900 text-sm p-3">
-                                Є помилки у полях — перевір <b>name / enum / pattern</b>.
-                            </div>
-                        )}
-                    </div>
-                </section>
-            )}
-        </div>
-    );
-}
