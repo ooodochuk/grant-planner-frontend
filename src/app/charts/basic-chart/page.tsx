@@ -16,7 +16,7 @@ type PropsType = {
 
 export default async function Page(props: PropsType) {
   const { selected_time_frame } = await props.searchParams;
-  const extractTimeFrame = createTimeFrameExtractor(selected_time_frame);
+    const extractTimeFrame = createTimeFrameExtractor(selected_time_frame ?? null);
 
   return (
     <>
