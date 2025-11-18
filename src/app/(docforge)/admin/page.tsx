@@ -198,12 +198,16 @@ const FieldRow: React.FC<{
 
     const handleName = (name: string) => {
         const shouldAuto = !value.label || value.label.trim() === "";
-        const auto =
-            shouldAuto &&
-            name
-                .replace(/[_\-]/g, " ")
-                .replace(/\b\w/g, (c) => c.toUpperCase());
-        onChange({ ...value, name, label: shouldAuto ? auto : value.label });
+
+        const autoLabel = name
+            .replace(/[_\-]/g, " ")
+            .replace(/\b\w/g, (c) => c.toUpperCase());
+
+        onChange({
+            ...value,
+            name,
+            label: shouldAuto ? autoLabel : value.label,
+        });
     };
 
     return (
