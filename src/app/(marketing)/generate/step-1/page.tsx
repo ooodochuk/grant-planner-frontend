@@ -1,10 +1,10 @@
-// app/generate/step-1/page.tsx
+// app/(marketing)/generate/step-1/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { WIZARD_STEPS, WizardAnswers, QuestionConfig } from "../wizardSchema";
 import { useRouter } from "next/navigation";
-import {WIZARD_CONTEXT_KEY} from "@/app/(marketing)/generate/wizardConstants";
+import { WIZARD_CONTEXT_KEY } from "@/app/(marketing)/generate/wizardConstants";
 
 const API_BASE =
     process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080";
@@ -16,7 +16,6 @@ interface WizardContext {
 
 interface GenerateDraftResponse {
     draftId: string;
-    // можеш додати інші поля за потреби
 }
 
 export default function GenerateWizardPage() {
@@ -81,7 +80,9 @@ export default function GenerateWizardPage() {
             });
 
             if (!res.ok) {
-                throw new Error(`Помилка при генерації бізнес-плану (код ${res.status})`);
+                throw new Error(
+                    `Помилка при генерації бізнес-плану (код ${res.status})`
+                );
             }
 
             const data = (await res.json()) as GenerateDraftResponse;
@@ -105,87 +106,93 @@ export default function GenerateWizardPage() {
     const progress = Math.round(((stepIndex + 1) / WIZARD_STEPS.length) * 100);
 
     return (
-        <div className="max-w-3xl mx-auto space-y-8">
-            {/* Прогрес-бар */}
-            <div className="space-y-2">
-                <p className="text-sm text-dark-4 dark:text-dark-6">
+        <div className="max-w-3xl mx-auto px-4 py-8 sm:py-10">
+            {/* Прогрес + заголовок в окремому блоці, центровані на мобілці */}
+            <div className="mb-5 space-y-3 text-center sm:text-left">
+                <p className="text-xs font-medium uppercase tracking-wide text-dark-4 dark:text-dark-6">
                     Крок {stepIndex + 1} з {WIZARD_STEPS.length}
                 </p>
-                <div className="h-2 w-full rounded-full bg-gray-100 dark:bg-dark-2">
+                <div className="h-1.5 w-full rounded-full bg-gray-100 dark:bg-dark-2">
                     <div
-                        className="h-2 rounded-full bg-black dark:bg-white transition-all"
+                        className="h-1.5 rounded-full bg-black dark:bg-white transition-all"
                         style={{ width: `${progress}%` }}
                     />
                 </div>
+
+                <div className="space-y-1 pt-1">
+                    <h1 className="text-2xl font-semibold sm:text-3xl">
+                        {step.title}
+                    </h1>
+                    {step.description && (
+                        <p className="text-sm text-dark-4 dark:text-dark-6">
+                            {step.description}
+                        </p>
+                    )}
+                </div>
             </div>
 
-            {/* Заголовок кроку */}
-            <div className="space-y-1">
-                <h2 className="text-2xl font-semibold">{step.title}</h2>
-                {step.description && (
-                    <p className="text-sm text-dark-4 dark:text-dark-6">
-                        {step.description}
+            {/* Картка з питаннями */}
+            <div className="rounded-2xl border bg-white p-5 shadow-sm dark:border-stroke-dark dark:bg-gray-dark sm:p-6 space-y-6">
+                {/* Питання */}
+                <div className="space-y-5">
+                    {step.questions.map(q => {
+                        const currentValue =
+                            answers[q.id] ?? (q.type === "multi-select" ? [] : "");
+
+                        return (
+                            <div key={q.id} className="space-y-2">
+                                <label className="block text-sm font-medium">
+                                    {q.label}
+                                    {q.required && <span className="text-red-500"> *</span>}
+                                </label>
+
+                                {renderField(q, currentValue, value =>
+                                    handleChange(q.id, value)
+                                )}
+
+                                {q.helperText && (
+                                    <p className="text-xs text-dark-4 dark:text-dark-6">
+                                        {q.helperText}
+                                    </p>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* Помилка */}
+                {error && (
+                    <p className="text-sm text-red-500">
+                        {error}
                     </p>
                 )}
-            </div>
 
-            {/* Питання */}
-            <div className="space-y-5">
-                {step.questions.map(q => {
-                    const currentValue =
-                        answers[q.id] ?? (q.type === "multi-select" ? [] : "");
+                {/* Кнопки навігації — краще для мобілки */}
+                <div className="pt-4 border-t border-gray-100 dark:border-stroke-dark">
+                    <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <button
+                            type="button"
+                            onClick={handleBack}
+                            disabled={stepIndex === 0 || isSubmitting}
+                            className="w-full sm:w-auto rounded-xl border border-transparent px-4 py-2.5 text-sm font-medium text-dark-4 hover:bg-gray-50 disabled:opacity-40 dark:text-dark-6 dark:hover:bg-dark-2"
+                        >
+                            Назад
+                        </button>
 
-                    return (
-                        <div key={q.id} className="space-y-2">
-                            <label className="block text-sm font-medium">
-                                {q.label}
-                                {q.required && <span className="text-red-500"> *</span>}
-                            </label>
-
-                            {renderField(q, currentValue, value =>
-                                handleChange(q.id, value)
-                            )}
-
-                            {q.helperText && (
-                                <p className="text-xs text-dark-4 dark:text-dark-6">
-                                    {q.helperText}
-                                </p>
-                            )}
-                        </div>
-                    );
-                })}
-            </div>
-
-            {/* Помилка */}
-            {error && (
-                <p className="text-sm text-red-500">
-                    {error}
-                </p>
-            )}
-
-            {/* Кнопки навігації */}
-            <div className="flex items-center justify-between pt-4 border-t dark:border-stroke-dark">
-                <button
-                    type="button"
-                    onClick={handleBack}
-                    disabled={stepIndex === 0 || isSubmitting}
-                    className="text-sm text-dark-4 disabled:opacity-40 dark:text-dark-6"
-                >
-                    Назад
-                </button>
-
-                <button
-                    type="button"
-                    onClick={handleNext}
-                    disabled={isSubmitting}
-                    className="rounded-xl bg-black px-5 py-2.5 text-sm font-medium text-white dark:bg-white dark:text-black disabled:opacity-50"
-                >
-                    {isLastStep
-                        ? isSubmitting
-                            ? "Генеруємо план..."
-                            : "Завершити та згенерувати план"
-                        : "Продовжити"}
-                </button>
+                        <button
+                            type="button"
+                            onClick={handleNext}
+                            disabled={isSubmitting}
+                            className="w-full sm:w-auto rounded-xl bg-black px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-black/90 disabled:opacity-50 dark:bg-white dark:text-black dark:hover:bg-gray-100"
+                        >
+                            {isLastStep
+                                ? isSubmitting
+                                    ? "Генеруємо план..."
+                                    : "Завершити та згенерувати план"
+                                : "Продовжити"}
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     );
@@ -197,7 +204,7 @@ function renderField(
     onChange: (value: string | string[]) => void
 ) {
     const commonClasses =
-        "w-full rounded-lg border px-4 py-2 text-sm bg-white dark:bg-gray-dark dark:border-stroke-dark";
+        "w-full rounded-lg border px-3 py-2.5 text-sm bg-white dark:bg-gray-dark dark:border-stroke-dark";
 
     // multi-select з чекбоксами
     if (q.type === "multi-select" && q.options) {
@@ -227,14 +234,17 @@ function renderField(
             <div className="space-y-2">
                 <div className="grid gap-2 sm:grid-cols-2">
                     {q.options.map(opt => (
-                        <label key={opt} className="flex items-center gap-2 text-sm">
+                        <label
+                            key={opt}
+                            className="flex items-center gap-2 rounded-lg border border-gray-100 px-3 py-2 text-sm hover:bg-gray-50 dark:border-stroke-dark dark:hover:bg-dark-2"
+                        >
                             <input
                                 type="checkbox"
                                 className="h-4 w-4 rounded border-gray-300"
                                 checked={selected.includes(opt)}
                                 onChange={() => toggle(opt)}
                             />
-                            <span>{opt}</span>
+                            <span className="leading-snug">{opt}</span>
                         </label>
                     ))}
                 </div>
@@ -261,7 +271,7 @@ function renderField(
     if (q.type === "textarea") {
         return (
             <textarea
-                className={commonClasses + " min-h-[90px]"}
+                className={commonClasses + " min-h-[100px] resize-y"}
                 placeholder={q.placeholder}
                 value={(value as string) ?? ""}
                 onChange={e => onChange(e.target.value)}
