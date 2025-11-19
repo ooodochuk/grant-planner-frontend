@@ -5,7 +5,7 @@ import { MarketingHeader } from "./marketing-header";
 // Тут лише каркас для маркетингу.
 
 export const metadata = {
-  title: "Grant Planner — ваш онлайн-помічник",
+  title: "Бізнес Гайд — ваш онлайн-помічник",
 };
 
 export default function MarketingLayout({ children }: { children: ReactNode }) {
