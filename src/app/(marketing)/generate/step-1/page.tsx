@@ -15,7 +15,10 @@ interface WizardContext {
 }
 
 interface GenerateDraftResponse {
-    draftId: string;
+    id?: string;
+    draftId?: string;
+    title: string;
+    previewUrl?: string;
 }
 
 export default function GenerateWizardPage() {
@@ -87,11 +90,17 @@ export default function GenerateWizardPage() {
 
             const data = (await res.json()) as GenerateDraftResponse;
 
-            if (typeof window !== "undefined") {
-                window.localStorage.setItem("bizplan:lastDraftId", data.draftId);
+            // бекенд зараз повертає id, а не draftId
+            const draftId = data.draftId ?? data.id;
+            if (!draftId) {
+                throw new Error("Сервер не повернув draftId / id для бізнес-проєкту.");
             }
 
-            router.push(`/generate/preview?draftId=${data.draftId}`);
+            if (typeof window !== "undefined") {
+                window.localStorage.setItem("bizplan:lastDraftId", draftId);
+            }
+
+            router.push(`/generate/preview?draftId=${draftId}`);
         } catch (e: any) {
             setError(e.message || "Сталася помилка при генерації бізнес-плану.");
         } finally {
@@ -167,7 +176,7 @@ export default function GenerateWizardPage() {
                     </p>
                 )}
 
-                {/* Кнопки навігації — краще для мобілки */}
+                {/* Кнопки навігації */}
                 <div className="pt-4 border-t border-gray-100 dark:border-stroke-dark">
                     <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <button
